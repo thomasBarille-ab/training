@@ -9,7 +9,7 @@ cors = CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
 file_path = 'programme_entrainement_semi_marathon_20_semaines.xlsx'
 df = pd.read_excel(file_path)
 
-@app.route('/data', methods=['GET'])
+@app.route('/api/data', methods=['GET'])
 def get_data():
     data = df.to_dict(orient='records')
     return jsonify(data)

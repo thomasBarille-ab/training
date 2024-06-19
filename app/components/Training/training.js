@@ -16,7 +16,7 @@ const Training = () => {
   const [selectedDay, setSelectedDay] = useState('');
 
   useEffect(() => {
-    axios.get('http://127.0.0.1:5000/data')
+    axios.get('http://127.0.0.1:5000/api/data')
       .then(response => {
         const allData = response.data;
         setData(allData);
