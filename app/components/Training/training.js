@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import axios from 'axios';
+import React, { useEffect, useState } from 'react';
+import * as XLSX from 'xlsx';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Paper, Typography, Select, MenuItem, FormControl, InputLabel, Box
+  Paper, Typography, Select, MenuItem, FormControl, InputLabel, Box, Container, AppBar, Toolbar
 } from '@mui/material';
 
 const Training = () => {
@@ -16,18 +16,31 @@ const Training = () => {
   const [selectedDay, setSelectedDay] = useState('');
 
   useEffect(() => {
-    axios.get('http://127.0.0.1:5000/api/data')
-      .then(response => {
-        const allData = response.data;
-        setData(allData);
+    fetch('/programme_entrainement_semi_marathon_20_semaines.xlsx')
+      .then(response => response.arrayBuffer())
+      .then(buffer => {
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
+
+        const headers = worksheet[0];
+        const rows = worksheet.slice(1).map(row => {
+          const rowData = {};
+          headers.forEach((header, index) => {
+            rowData[header] = row[index];
+          });
+          return rowData;
+        });
+
+        setData(rows);
 
         // Extract unique days
-        const daySet = new Set(allData.map(item => item.Jour));
+        const daySet = new Set(rows.map(item => item.Jour));
         setDays(Array.from(daySet).sort());
 
         // Extract unique weeks
         const weekSet = new Set();
-        allData.forEach(item => {
+        rows.forEach(item => {
           Object.keys(item).forEach(key => {
             if (key.startsWith('Semaine ')) {
               weekSet.add(key);
@@ -41,12 +54,12 @@ const Training = () => {
         });
         setWeeks(sortedWeeks);
 
-        if (allData.length > 0 && sortedWeeks.length > 0) {
+        if (rows.length > 0 && sortedWeeks.length > 0) {
           setColumns(['Jour', sortedWeeks[0]]);
           setSelectedWeek(sortedWeeks[0]);
         }
       })
-      .catch(error => console.error('Error fetching data:', error));
+      .catch(error => console.error('Error fetching or parsing Excel file:', error));
   }, []);
 
   const handleWeekChange = (event) => {
@@ -59,61 +72,63 @@ const Training = () => {
   };
 
   const filteredData = data.filter(row => {
-    return (selectedDay ? row.Jour === selectedDay : true);
+    return (selectedWeek ? row[selectedWeek] !== undefined : true) && (selectedDay ? row.Jour === selectedDay : true);
   });
 
   return (
-    <div className="training-container">
-      <Typography variant="h4" component="h1" gutterBottom sx={{ textAlign: 'center', margin: '20px 0' }}>
-        Programme Entrainement Semi Marathon - 20 Semaines
-      </Typography>
-
-      <Box sx={{ display: 'flex', justifyContent: 'center', marginBottom: 2 }}>
-        <FormControl sx={{ minWidth: 120, marginRight: 2 }}>
-          <InputLabel>Semaine</InputLabel>
-          <Select value={selectedWeek} onChange={handleWeekChange} label="Semaine">
-            {weeks.map((week, index) => (
-              <MenuItem key={index} value={week}>{week}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl sx={{ minWidth: 120 }}>
-          <InputLabel>Jour</InputLabel>
-          <Select value={selectedDay} onChange={handleDayChange} label="Jour">
-            <MenuItem value=""><em>None</em></MenuItem>
-            {days.map((day, index) => (
-              <MenuItem key={index} value={day}>{day}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Box>
-
-      <TableContainer component={Paper} sx={{ maxWidth: 1200, margin: 'auto' }}>
-        <Table className="training-table">
-          <TableHead>
-            <TableRow>
-              {columns.map((col, index) => (
-                <TableCell key={index} sx={{ fontWeight: 'bold', backgroundColor: '#f4f4f4' }}>{col}</TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredData.map((row, rowIndex) => (
-              <TableRow key={rowIndex}>
-                {columns.map((col, colIndex) => (
-                  <TableCell key={colIndex}>{row[col]}</TableCell>
+    <Container maxWidth="lg">
+      <AppBar position="static">
+        <Toolbar>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            Programme Entrainement Semi Marathon
+          </Typography>
+        </Toolbar>
+      </AppBar>
+      <Box mt={4} mb={4}>
+        <Paper elevation={3} sx={{ padding: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+            <FormControl sx={{ minWidth: 120, mr: 2 }}>
+              <InputLabel>Semaine</InputLabel>
+              <Select value={selectedWeek} onChange={handleWeekChange} label="Semaine">
+                {weeks.map((week, index) => (
+                  <MenuItem key={index} value={week}>{week}</MenuItem>
                 ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </div>
+              </Select>
+            </FormControl>
+            <FormControl sx={{ minWidth: 120 }}>
+              <InputLabel>Jour</InputLabel>
+              <Select value={selectedDay} onChange={handleDayChange} label="Jour">
+                {days.map((day, index) => (
+                  <MenuItem key={index} value={day}>{day}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  {columns.map((col, index) => (
+                    <TableCell key={index} sx={{ fontWeight: 'bold', backgroundColor: '#f4f4f4' }}>{col}</TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredData.map((row, rowIndex) => (
+                  <TableRow key={rowIndex}>
+                    {columns.map((col, colIndex) => (
+                      <TableCell key={colIndex}>{row[col]}</TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      </Box>
+    </Container>
   );
 };
 
 export default Training;
-
-
-
-
